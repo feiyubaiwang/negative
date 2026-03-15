@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>你的反派人格</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+
+        :root {
+            --theme-color: #038C65;
+            --theme-glow: rgba(3, 140, 101, 0.4);
+        }
+
+        body {
+            background-color: #0a0a0c;
+            color: #e5e7eb;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .serif-title {
+            font-family: 'Noto Serif SC', serif;
+        }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0c; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--theme-color); 
+        }
+
+        /* 呼吸发光按钮 */
+        .btn-glow {
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px transparent;
+        }
+        .btn-glow:hover {
+            box-shadow: 0 0 25px var(--theme-glow);
+            text-shadow: 0 0 8px rgba(255,255,255,0.5);
+        }
+
+        /* 选项悬浮效果 */
+        .option-card {
+            transition: all 0.2s ease;
+            border: 1px solid #1f2937;
+        }
+        .option-card:hover {
+            border-color: var(--theme-color);
+            background: rgba(3, 140, 101, 0.1);
+            transform: translateX(5px);
+        }
+
+        /* 页面切换淡入淡出 */
+        .fade-enter {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 干扰噪点背景 (增加电影质感) */
+        .noise-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        theme: '#038C65',
+                        'theme-dark': '#026b4d',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center relative pb-10">
+    <div class="noise-overlay"></div>
+
+    <div id="app" class="w-full max-w-3xl px-6 relative z-10">
+        
+        <!-- ================= [1] 首页 ================= -->
+        <div id="view-intro" class="text-center fade-enter pt-20">
+            <h1 class="serif-title text-5xl md:text-7xl font-black mb-6 tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-gray-100 to-gray-500">
+                反派剧本
+            </h1>
+            <p class="text-theme tracking-[0.3em] mb-12 text-sm md:text-base font-semibold">
+                你人格的另一面
+            </p>
+            <p class="text-gray-400 mb-12 max-w-lg mx-auto leading-relaxed text-sm md:text-base">
+                回答25个问题，揭晓你内心的反派人格。
+            </p>
+            <button onclick="startTest()" class="btn-glow bg-theme text-white px-12 py-4 rounded-none font-bold tracking-widest text-lg border border-theme hover:bg-theme-dark">
+                揭开面具
+            </button>
+        </div>
+
+        <!-- ================= [2] 测试页 ================= -->
+        <div id="view-quiz" class="hidden w-full fade-enter pt-10">
+            <!-- 进度条 -->
+            <div class="mb-10">
+                <div class="flex justify-between text-xs text-gray-500 mb-2 font-mono">
+                    <span id="progress-text">01 / 25</span>
+                </div>
+                <div class="w-full bg-gray-800 h-1">
+                    <div id="progress-bar" class="bg-theme h-1 transition-all duration-300" style="width: 4%;"></div>
+                </div>
+            </div>
+
+            <!-- 题目 -->
+            <div class="min-h-[250px]">
+                <h2 id="question-text" class="serif-title text-2xl md:text-3xl font-bold mb-10 leading-snug">
+                    加载中...
+                </h2>
+                
+                <!-- 选项 -->
+                <div class="space-y-4" id="options-container">
+                    <!-- 动态注入选项 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= [3] 加载页 ================= -->
+        <div id="view-loading" class="hidden text-center fade-enter pt-32">
+            <div class="inline-block relative w-20 h-20">
+                <div class="absolute top-0 left-0 w-full h-full border-4 border-gray-800 rounded-full"></div>
+                <div class="absolute top-0 left-0 w-full h-full border-4 border-theme rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <h3 class="serif-title text-2xl mt-8 text-gray-300 tracking-widest">正在生成分析报告...</h3>
+            <p class="text-theme mt-2 font-mono text-sm">解析心理特征中...</p>
+        </div>
+
+        <!-- ================= [4] 结果页 ================= -->
+        <div id="view-result" class="hidden fade-enter w-full py-10">
+            <div class="text-center mb-12">
+                <p class="text-theme tracking-widest text-sm mb-2 font-bold">分析完成</p>
+                <h1 class="serif-title text-4xl md:text-5xl font-bold mb-2">你的反派人格</h1>
+                <div class="w-16 h-1 bg-theme mx-auto mt-6"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-12">
+                <!-- 雷达图 -->
+                <div class="relative bg-gray-900/50 p-6 border border-gray-800 rounded-xl">
+                    <canvas id="radarChart"></canvas>
+                </div>
+
+                <!-- 反派匹配信息 -->
+                <div class="space-y-6">
+                    <div>
+                        <h2 id="villain-name" class="serif-title text-4xl font-black text-white mb-2">汉尼拔</h2>
+                        <p id="villain-movie" class="text-theme font-semibold">《沉默的羔羊》</p>
+                    </div>
+                    
+                    <div class="bg-gray-800/50 p-5 border-l-4 border-theme">
+                        <p id="villain-quote" class="italic text-gray-300 leading-relaxed">
+                            "曾经有人想调查我。我配合着蚕豆和上好的基安蒂葡萄酒，吃了他的肝脏。"
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 mt-4" id="trait-tags">
+                        <!-- 动态标签 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 深度分析 (200字以上) -->
+            <div class="bg-black/40 border border-gray-800 p-8 md:p-10 relative mt-8">
+                <div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-theme"></div>
+                <div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-theme"></div>
+                
+                <h3 class="serif-title text-2xl mb-6 text-white flex items-center">
+                    <span class="w-2 h-2 bg-theme mr-3"></span>深度心理学分析
+                </h3>
+                <div id="analysis-text" class="text-gray-300 leading-loose space-y-4 text-sm md:text-base text-justify">
+                    <!-- 动态生成分析文本 -->
+                </div>
+            </div>
+
+            <div class="mt-16 text-center">
+                <button onclick="resetTest()" class="text-gray-500 hover:text-theme transition-colors font-mono text-sm underline underline-offset-4">
+                    [ 重新探索 ]
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ================= 数据定义 =================
+        const dimensions = {
+            control: { name: "掌控", key: "control" },
+            chaos: { name: "混沌", key: "chaos" },
+            paranoia: { name: "偏执", key: "paranoia" },
+            vanity: { name: "虚荣", key: "vanity" },
+            coldness: { name: "冷酷", key: "coldness" }
+        };
+
+        const questions = [
+            // Control
+            { text: "只要能达成终极目标，我不介意在过程中牺牲一部分人或规则。", dim: "control" },
+            { text: "在群体中，我潜意识里总是试图去主导局势，而不是被动跟随。", dim: "control" },
+            { text: "我觉得大多数人的智商和眼界都很平庸，需要被更聪明的人引导。", dim: "control" },
+            { text: "我非常享受在幕后操控一切，看着事情按我预想的剧本发展的感觉。", dim: "control" },
+            { text: "我不相信绝对的公平，权力永远属于懂得如何运作它的人。", dim: "control" },
+            // Chaos
+            { text: "有时候我纯粹是因为觉得无聊，就会故意去做一些打破常规或惹出麻烦的事。", dim: "chaos" },
+            { text: "传统的道德底线和普世价值观，对我来说不过是束缚弱者的枷锁。", dim: "chaos" },
+            { text: "看着秩序崩塌、人们陷入慌乱时，我内心会有一种隐秘的愉悦感。", dim: "chaos" },
+            { text: "我喜欢自己的行为让人无法预测，这种不可控性让我感到自由。", dim: "chaos" },
+            { text: "比起精心计划一切，我更喜欢顺应事态的混乱，随机应变地制造破坏。", dim: "chaos" },
+            // Paranoia
+            { text: "我永远不会忘记别人对我的背叛或轻视，哪怕只是一件微不足道的小事。", dim: "paranoia" },
+            { text: "我总觉得周围的人在暗地里有自己的算盘，随时可能对我构成威胁。", dim: "paranoia" },
+            { text: "一旦我认定了某个真理或目标，全世界的反对都无法改变我的想法。", dim: "paranoia" },
+            { text: "我习惯为所有事情做最坏的打算，并在脑海里演练如何反击。", dim: "paranoia" },
+            { text: "我极度渴望安全感，而获得安全感的唯一方式就是消灭所有潜在的隐患。", dim: "paranoia" },
+            // Vanity
+            { text: "我深知自己比周围绝大多数人都要卓越，理应获得更多的特权和关注。", dim: "vanity" },
+            { text: "如果我取得的成就没有被足够多的人赞叹和仰视，我会觉得毫无意义。", dim: "vanity" },
+            { text: "我无法忍受被任何人忽视或贬低，如果发生，我会让他们付出代价。", dim: "vanity" },
+            { text: "在内心深处，我渴望成为某种‘神明’或被绝对崇拜的精神领袖。", dim: "vanity" },
+            { text: "别人对我的嫉妒和恐惧，是我卓越能力的最佳证明，这让我感到满足。", dim: "vanity" },
+            // Coldness
+            { text: "当看到陌生人遭受不幸时，我的内心毫无波澜，甚至觉得那是他们咎由自取。", dim: "coldness" },
+            { text: "我认为同情心和共情能力是人类进化过程中的累赘，只会让人变得软弱。", dim: "coldness" },
+            { text: "在做重要决定时，我能完全剥离情感，像机器一样只计算利益得失。", dim: "coldness" },
+            { text: "我可以随时毫不内疚地切断与任何人的关系，哪怕是曾经很亲密的人。", dim: "coldness" },
+            { text: "如果别人挡了我的路，我摧毁他们时不会有任何道德上的负罪感。", dim: "coldness" }
+        ];
+
+        // 随机打乱题目
+        questions.sort(() => Math.random() - 0.5);
+
+        const villains = [
+            // ================= 男性角色 (5位) =================
+            {
+                id: "hannibal",
+                name: "汉尼拔·莱克特",
+                movie: "《沉默的羔羊》",
+                quote: "我并不残忍，我只是在品尝粗鲁的代价。优雅和智慧，凌驾于所有生命之上。",
+                tags: ["极致优雅", "高智商操纵", "洞察人心"],
+                idealProfile: { control: 22, chaos: 8, paranoia: 10, vanity: 18, coldness: 24 },
+                analysisTemplate: `在你的潜意识深处，蛰伏着一个绝对理性与优雅的灵魂。你拥有极高的智商与敏锐的洞察力，这让你能够轻易看透他人的心理防线。你的反派特质并不在于歇斯底里的破坏，而在于一种“上帝视角”的冷酷。\n\n**你的核心优点在于你对卓越的追求与极致的优雅。**你对世界有着一套严苛的审美标准，将平庸、粗鲁和愚蠢视为原罪。在人际交往中，你极其自律且彬彬有礼，拥有极高的艺术品位和学识。你遇事永远从容不迫，能够在最混乱的局面中保持绝对的冷静，用强大的逻辑掌控一切。\n\n然而，这种极度的冷酷与理性，也意味着你主动切断了与大部分人的共情通道。你习惯于在幕后俯视众生，但偶尔，你也渴望遇到一个能在智力与灵魂上与你势均力敌的对手。`
+            },
+            {
+                id: "thanos",
+                name: "灭霸",
+                movie: "《复仇者联盟3：无限战争》",
+                quote: "最艰难的抉择，需要最坚强的意志。我是天命。",
+                tags: ["宏大视野", "悲壮意志", "牺牲精神"],
+                idealProfile: { control: 24, chaos: 5, paranoia: 22, vanity: 10, coldness: 20 },
+                analysisTemplate: `你并非传统意义上为了私欲而作恶的暴徒，你内心的反派是一位**背负着沉重使命的殉道者**。你的偏执与掌控欲完美结合，为你塑造了一套绝对坚不可摧的价值观与宏大的世界观。\n\n**你的核心优点在于你拥有极其强大的意志力与无私的牺牲精神。**你是一个纯粹的理想主义者，为了实现你认为对的“终极目标”和“大局”，你愿意承担所有的骂名，甚至牺牲自己最珍视的事物。你具备卓越的战略眼光和领导才能，执行力极强，从不被短暂的情感或利益所诱惑。\n\n但正是这种“神明般”的使命感成为了你的桎梏。你拒绝倾听其他的解决方案，将自己的意志强加于整个世界。你那看似绝对理性的计划，实则建立在极度傲慢的个人英雄主义之上。`
+            },
+            {
+                id: "loki",
+                name: "洛基",
+                movie: "《复仇者联盟》",
+                quote: "我满载着光荣的使命而来。",
+                tags: ["魅力四射", "灵活善变", "渴望羁绊"],
+                idealProfile: { control: 15, chaos: 23, paranoia: 15, vanity: 24, coldness: 12 },
+                analysisTemplate: `在你傲慢轻蔑的冷笑背后，是一个**极度渴望爱、认同与自我证明的灵魂**。你的反派特质并不源于绝对的邪恶，而是源于不甘平庸的野心和对自身价值的极力探索。\n\n**你的核心优点在于你无与伦比的个人魅力、高超的情商与绝佳的适应能力。**你极其聪明且充满幽默感，能够在任何绝境中迅速找到破局的方法。你拒绝死板的规则，思维灵动，总能用意想不到的方式逆转局势。更重要的是，在层层伪装之下，你拥有极深的情感容量，对真正在意的人抱有强烈的保护欲。\n\n你喜欢华丽的登场和戏剧性的冲突，善于利用人性的弱点制造混乱。但因为你并非彻底冷酷，你在关键时刻往往会因为内心的善念或情感羁绊而动摇，这正是你最迷人的地方。`
+            },
+            {
+                id: "magneto",
+                name: "万磁王 (埃里克)",
+                movie: "《X战警》",
+                quote: "我曾对他们抱有希望，但人类的傲慢总是会毁掉一切。我必须保护我的同胞。",
+                tags: ["领袖气质", "族群捍卫者", "悲壮理想"],
+                idealProfile: { control: 20, chaos: 12, paranoia: 24, vanity: 15, coldness: 18 },
+                analysisTemplate: `你内心的反派人格源自于深刻的创伤和对不公的极致反抗。你是一个**不折不扣的革命者**，绝不将命运交托于他人的怜悯。当规则成为压迫的工具时，你会毫不犹豫地选择粉碎规则。\n\n**你的核心优点在于你极具感染力的领袖气质与对同伴的绝对忠诚。**你拥有极其坚定的信仰，是一个天生的保护者。为了你所珍视的群体和正义，你愿意冲在最前方，承受所有的炮火与误解。你百折不挠，拥有化悲痛为力量的惊人韧性，你的动机始终是高尚且令人动容的。\n\n你的偏执源于你对人性的深刻不信任，你习惯做最坏的打算。你坚信只有掌握绝对的力量才能赢得和平，这让你在面对反对者时显得冷酷无情。你的光芒过于耀眼，有时会灼伤那些试图靠近你的人。`
+            },
+            {
+                id: "jigsaw",
+                name: "竖锯 (约翰·克莱默)",
+                movie: "《电锯惊魂2》",
+                quote: "大多数人根本不懂得感激生命，但你不会了，从今以后都不了。",
+                tags: ["规则至上", "生命哲学家", "严谨自律"],
+                idealProfile: { control: 23, chaos: 10, paranoia: 16, vanity: 8, coldness: 18 },
+                analysisTemplate: `你并不认为自己是反派，相反，你视自己为**在堕落世界中唤醒人性的导师**。你的行为驱动力来自于对生命脆弱的深刻认知，以及对那些挥霍生命者的极度惋惜与愤慨。\n\n**你的核心优点在于你极度的自律、严谨的逻辑与对生命的深层敬畏。**你是一个真正的哲学家和工程大师，做事极具条理，信守承诺，从不被情绪左右。你制定的规则虽然残酷，但永远保持绝对的公平。你敏锐地洞察人性的弱点，并试图通过极端的考验，激发他人沉睡的求生欲与潜能。\n\n你将自己凌驾于世俗审判之上，固执地认为极致的痛苦是让人蜕变的唯一途径。你那套自洽的哲学看似崇高，实则不过是用一种极端的控制欲，来对抗你面对生死无常时的无力感。`
+            },
+
+            // ================= 女性角色 (5位) =================
+            {
+                id: "amy_dunne",
+                name: "艾米·邓恩",
+                movie: "《消失的爱人》",
+                quote: "我是那个让他觉得自己无所不能的完美女人，直到他让我觉得自己一文不值。",
+                tags: ["完美规划", "拒绝受害", "高智商反击"],
+                idealProfile: { control: 25, chaos: 12, paranoia: 20, vanity: 18, coldness: 22 },
+                analysisTemplate: `你的内心是一位**精密、冷酷且执行力点满的剧本大师**。当你感到被背叛或被辜负时，你绝不会选择歇斯底里的抱怨，而是会冷静地设下一个天罗地网，用最完美的手段拿回属于你的主导权。\n\n**你的核心优点在于你叹为观止的战略头脑和绝对不当弱者的强悍内心。**你智商极高，能够完美洞悉社会心理和舆论走向。你拥有可怕的自我管理能力和执行力，为了达成目标，你可以极其自律地隐忍。你绝不内耗，拒绝接受命运的摆布，敢于亲手改写对自己不利的结局。\n\n在你的世界里，关系就是一场权力游戏，你绝不允许对方脱离你的轨道。你那种令人毛骨悚然的冷静，虽然能让你赢得每一次博弈，但你也因此将自己的人生变成了一场不容出错的表演，难以获得真正的松弛。`
+            },
+            {
+                id: "miranda_priestly",
+                name: "米兰达·普雷斯丽",
+                movie: "《穿普拉达的女王》",
+                quote: "这就是你所能做到的全部吗？那就这样吧，你可以走了。",
+                tags: ["追求卓越", "绝对专业", "行业女王"],
+                idealProfile: { control: 24, chaos: 6, paranoia: 14, vanity: 22, coldness: 20 },
+                analysisTemplate: `你内心的反派人格源自于对平庸的零容忍。你不仅是一个掌控者，更是**所在领域的绝对权威与规则制定者**。你用令人窒息的高压统治着周围的一切，仅仅是因为你对完美有着不可妥协的执念。\n\n**你的核心优点在于你拥有无可挑剔的专业能力、前瞻性的眼光以及对卓越的极致追求。**你不接受借口，极度理智，能够在最巨大的压力下做出最正确的决策。你虽然严苛冷酷，但你确实用你的高标准逼出了周围人最优秀的潜能，你是一个能够真正引领时代、创造巨大价值的领航者。\n\n你为了事业上的完美，习惯性地剥离了温情，将效率置于人情之上。你的冷酷常常让下属和亲近的人感到恐惧。高处不胜寒，你的强大让你赢得了所有的敬畏，却也注定了你在精神世界里的绝对孤独。`
+            },
+            {
+                id: "hela",
+                name: "海拉 (死亡女神)",
+                movie: "《雷神3：诸神黄昏》",
+                quote: "我不是女王，更不是怪物。我是死亡女神，你到底是什么神来着？",
+                tags: ["野心勃勃", "坦荡直率", "绝对实力"],
+                idealProfile: { control: 22, chaos: 18, paranoia: 10, vanity: 24, coldness: 22 },
+                analysisTemplate: `你的反派内核是**纯粹的力量与毫不掩饰的野心**。你极度自信，对虚伪的粉饰嗤之以鼻。你认为世界本就该由强者主导，而你，正是那个拥有绝对实力的王座继承者。\n\n**你的核心优点在于你的坦荡、果决以及战无不胜的硬实力。**你从不掩饰自己的欲望，坦率得近乎可爱；你敢作敢当，鄙视一切伪善的谎言。你拥有摧枯拉朽的执行力和极强的独立性，不需要依赖任何人就能打下一片江山。你的霸气和决断力，让你拥有无与伦比的压迫感与领导魅力。\n\n你习惯用最直接、最暴力的方式解决问题，缺乏耐性去建立更为细腻的平衡。你的傲慢来源于你过分迷信力量，认为征服就是一切，却忽视了维持一个王国同样需要妥协与共情。`
+            },
+            {
+                id: "cruella",
+                name: "库伊拉",
+                movie: "《黑白魔女库伊拉》",
+                quote: "我生来就是个天才，我生来就与众不同，我也生来就是个反派。",
+                tags: ["艺术天才", "打破常规", "桀骜不驯"],
+                idealProfile: { control: 14, chaos: 24, paranoia: 12, vanity: 25, coldness: 14 },
+                analysisTemplate: `你内心的反派人格是一个**张扬、不羁、敢于颠覆一切的艺术狂徒**。你厌恶陈规陋习，讨厌被定义和被束缚。当传统势力试图打压你时，你不仅会反击，还会用最华丽、最疯狂的方式抢走所有的聚光灯。\n\n**你的核心优点在于你拥有惊世骇俗的创造力、打破常规的勇气以及绝对真实的自我。**你是一个真正的创意天才，不惧世俗眼光，敢于直面自己内心的疯狂与不完美。你有着超强的资源整合能力与行动力，能够从废墟中华丽重生，用才华将那些曾经轻视你的人狠狠踩在脚下。\n\n你的混沌特质让你显得不可预测，为了证明自己，你有时会表现得过分张扬和虚荣。你内心深处仍然渴望被看到、被认可，这种强烈的表现欲既是你灵感的源泉，也是让你容易陷入极端情绪的导火索。`
+            },
+            {
+                id: "o_ren_ishii",
+                name: "奥莲·石井",
+                movie: "《杀死比尔》",
+                quote: "你要是觉得不服气，现在就可以走。否则，就给我把头低下。",
+                tags: ["极度自律", "武士精神", "坚韧不拔"],
+                idealProfile: { control: 20, chaos: 10, paranoia: 18, vanity: 15, coldness: 25 },
+                analysisTemplate: `如果说其他反派是被欲望驱使，那么你内心的反派人格就是一把**经过千锤百炼、冰冷而锋利的武士刀**。你经历了常人难以想象的深渊，却凭借自己的双手一步步爬上了权力的巅峰，你的冷酷是你生存的铠甲。\n\n**你的核心优点在于你令人敬畏的坚韧、极致的自律以及对荣誉和实力的尊重。**你不靠运气，全凭硬实力赢来今天的地位。你是一个极其优秀的组织者和领导者，赏罚分明，绝不拖泥带水。即便身处黑暗，你依然遵循着一套严格的自我准则和“武士道”精神，对真正有实力的人报以极大的敬意。\n\n为了在这个残酷的世界中立足，你几乎完全封闭了自己柔软的情感，对背叛者施以最冷酷的惩罚。你的世界非黑即白，这种决绝让你显得无懈可击，却也让你时刻处于紧绷的状态，难以体会平凡生活的温度。`
+            }
+        ];
+
+        // ================= 状态管理 =================
+        let currentQuestionIndex = 0;
+        let userScores = {
+            control: 0,
+            chaos: 0,
+            paranoia: 0,
+            vanity: 0,
+            coldness: 0
+        };
+        let chartInstance = null;
+
+        // ================= 核心逻辑 =================
+
+        function startTest() {
+            document.getElementById('view-intro').classList.add('hidden');
+            document.getElementById('view-quiz').classList.remove('hidden');
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                finishTest();
+                return;
+            }
+
+            const q = questions[currentQuestionIndex];
+            
+            // 更新进度
+            const progressPercent = ((currentQuestionIndex) / questions.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+            document.getElementById('progress-text').innerText = `${String(currentQuestionIndex + 1).padStart(2, '0')} / ${questions.length}`;
+
+            // 淡入动画控制
+            const qText = document.getElementById('question-text');
+            const optsContainer = document.getElementById('options-container');
+            
+            qText.style.opacity = 0;
+            optsContainer.style.opacity = 0;
+
+            setTimeout(() => {
+                qText.innerText = q.text;
+                optsContainer.innerHTML = '';
+
+                const options = [
+                    { label: "极度符合", val: 5 },
+                    { label: "比较符合", val: 4 },
+                    { label: "不确定/中立", val: 3 },
+                    { label: "不太符合", val: 2 },
+                    { label: "完全不符合", val: 1 }
+                ];
+
+                options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full text-left p-4 rounded-md option-card text-gray-300 font-medium flex justify-between items-center group';
+                    btn.innerHTML = `
+                        <span>${opt.label}</span>
+                        <span class="opacity-0 group-hover:opacity-100 text-theme transition-opacity text-sm font-mono">[ 选择 ]</span>
+                    `;
+                    btn.onclick = () => handleAnswer(q.dim, opt.val);
+                    optsContainer.appendChild(btn);
+                });
+
+                qText.style.transition = 'opacity 0.4s ease';
+                optsContainer.style.transition = 'opacity 0.4s ease';
+                qText.style.opacity = 1;
+                optsContainer.style.opacity = 1;
+            }, 200);
+        }
+
+        function handleAnswer(dimension, value) {
+            userScores[dimension] += value;
+            currentQuestionIndex++;
+            renderQuestion();
+        }
+
+        function finishTest() {
+            document.getElementById('view-quiz').classList.add('hidden');
+            document.getElementById('view-loading').classList.remove('hidden');
+
+            // 模拟计算延迟增加氛围感
+            setTimeout(() => {
+                document.getElementById('view-loading').classList.add('hidden');
+                document.getElementById('view-result').classList.remove('hidden');
+                generateResult();
+            }, 2500);
+        }
+
+        function generateResult() {
+            // ================= 优化算法：多维欧几里得距离匹配 =================
+            // 计算用户得分向量与各个反派"理想得分向量"之间的空间距离
+            // 距离最小者即为心理剖面最匹配的反派
+            
+            let matchedVillain = villains[0]; 
+            let minDistance = Infinity;
+
+            for (let i = 0; i < villains.length; i++) {
+                const profile = villains[i].idealProfile;
+                
+                // 计算 5D 空间中的两点距离
+                const distance = Math.sqrt(
+                    Math.pow(userScores.control - profile.control, 2) +
+                    Math.pow(userScores.chaos - profile.chaos, 2) +
+                    Math.pow(userScores.paranoia - profile.paranoia, 2) +
+                    Math.pow(userScores.vanity - profile.vanity, 2) +
+                    Math.pow(userScores.coldness - profile.coldness, 2)
+                );
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    matchedVillain = villains[i];
+                }
+            }
+
+            // 渲染数据
+            document.getElementById('villain-name').innerText = matchedVillain.name;
+            document.getElementById('villain-movie').innerText = matchedVillain.movie;
+            document.getElementById('villain-quote').innerText = `"${matchedVillain.quote}"`;
+            
+            // 渲染标签
+            const tagsContainer = document.getElementById('trait-tags');
+            tagsContainer.innerHTML = '';
+            matchedVillain.tags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = 'px-3 py-1 bg-theme/20 text-theme border border-theme/30 text-xs font-bold rounded';
+                span.innerText = tag;
+                tagsContainer.appendChild(span);
+            });
+
+            // 渲染分析文本 (格式化段落)
+            const analysisHtml = matchedVillain.analysisTemplate
+                .split('\n\n')
+                .map(para => `<p>${para.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white border-b-2 border-theme pb-0.5">$1</strong>')}</p>`)
+                .join('');
+            document.getElementById('analysis-text').innerHTML = analysisHtml;
+
+            // 绘制雷达图
+            drawRadarChart();
+        }
+
+        function drawRadarChart() {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            Chart.defaults.color = '#9ca3af';
+            Chart.defaults.font.family = 'sans-serif';
+
+            const dataValues = [
+                userScores.control,
+                userScores.chaos,
+                userScores.paranoia,
+                userScores.vanity,
+                userScores.coldness
+            ];
+
+            chartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['掌控', '混沌', '偏执', '虚荣', '冷酷'],
+                    datasets: [{
+                        label: '黑暗阈值',
+                        data: dataValues,
+                        backgroundColor: 'rgba(3, 140, 101, 0.2)', // theme color with opacity
+                        borderColor: '#038C65',
+                        pointBackgroundColor: '#038C65',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#038C65',
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            pointLabels: {
+                                font: { size: 12, weight: 'bold' },
+                                color: '#e5e7eb'
+                            },
+                            ticks: {
+                                display: false,
+                                min: 0,
+                                max: 25 // 最大分值 5题*5分
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+        }
+
+        function resetTest() {
+            currentQuestionIndex = 0;
+            userScores = { control: 0, chaos: 0, paranoia: 0, vanity: 0, coldness: 0 };
+            
+            // 重新打乱题目
+            questions.sort(() => Math.random() - 0.5);
+
+            document.getElementById('view-result').classList.add('hidden');
+            document.getElementById('view-intro').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
