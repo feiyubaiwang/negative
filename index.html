@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>你的反派人格</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
 
@@ -160,8 +160,26 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-12">
                 <!-- 雷达图 -->
-                <div class="relative bg-gray-900/50 p-6 border border-gray-800 rounded-xl">
+                <div class="relative bg-gray-900/50 p-6 border border-gray-800 rounded-xl min-h-[300px] flex items-center justify-center">
                     <canvas id="radarChart"></canvas>
+                    <div id="chart-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80">
+                        <div class="w-10 h-10 border-2 border-gray-700 border-t-theme rounded-full animate-spin"></div>
+                        <p class="text-gray-400 text-xs mt-3">加载图表...</p>
+                    </div>
+                    <div id="chart-fallback" class="hidden absolute inset-0 flex flex-col items-center justify-center p-4">
+                        <div class="w-full space-y-3">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>掌控</span><span id="score-control">0</span></div>
+                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-control" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
+                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>混沌</span><span id="score-chaos">0</span></div>
+                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-chaos" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
+                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>偏执</span><span id="score-paranoia">0</span></div>
+                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-paranoia" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
+                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>虚荣</span><span id="score-vanity">0</span></div>
+                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-vanity" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
+                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>冷酷</span><span id="score-coldness">0</span></div>
+                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-coldness" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 反派匹配信息 -->
@@ -431,7 +449,25 @@
                 document.getElementById('view-loading').classList.add('hidden');
                 document.getElementById('view-result').classList.remove('hidden');
                 generateResult();
+                
+                // 等待 Chart.js 加载完成后再绘制图表
+                waitForChartJs();
             }, 2500);
+        }
+        
+        // 等待 Chart.js 加载，最多等待 10 秒
+        function waitForChartJs(attempts = 0) {
+            if (typeof Chart !== 'undefined') {
+                drawRadarChart();
+                return;
+            }
+            
+            if (attempts < 50) { // 最多等待 5 秒 (50 * 100ms)
+                setTimeout(() => waitForChartJs(attempts + 1), 100);
+            } else {
+                // 超时，使用降级方案
+                drawRadarChart();
+            }
         }
 
         function generateResult() {
@@ -481,13 +517,39 @@
                 .map(para => `<p>${para.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white border-b-2 border-theme pb-0.5">$1</strong>')}</p>`)
                 .join('');
             document.getElementById('analysis-text').innerHTML = analysisHtml;
-
-            // 绘制雷达图
-            drawRadarChart();
+            
+            // 雷达图将在 waitForChartJs 中绘制
         }
 
         function drawRadarChart() {
-            const ctx = document.getElementById('radarChart').getContext('2d');
+            const loadingEl = document.getElementById('chart-loading');
+            const fallbackEl = document.getElementById('chart-fallback');
+            const canvas = document.getElementById('radarChart');
+            
+            // 如果 Chart.js 还没加载完成，显示降级方案
+            if (typeof Chart === 'undefined') {
+                loadingEl.classList.add('hidden');
+                canvas.classList.add('hidden');
+                fallbackEl.classList.remove('hidden');
+                
+                // 显示进度条
+                const maxScore = 25;
+                const dims = ['control', 'chaos', 'paranoia', 'vanity', 'coldness'];
+                dims.forEach((dim, i) => {
+                    setTimeout(() => {
+                        const score = userScores[dim];
+                        const percentage = (score / maxScore) * 100;
+                        document.getElementById(`score-${dim}`).textContent = score;
+                        document.getElementById(`bar-${dim}`).style.width = `${percentage}%`;
+                    }, i * 100);
+                });
+                return;
+            }
+            
+            // Chart.js 已加载，隐藏 loading
+            loadingEl.classList.add('hidden');
+            
+            const ctx = canvas.getContext('2d');
             
             if (chartInstance) {
                 chartInstance.destroy();
@@ -511,7 +573,7 @@
                     datasets: [{
                         label: '黑暗阈值',
                         data: dataValues,
-                        backgroundColor: 'rgba(3, 140, 101, 0.2)', // theme color with opacity
+                        backgroundColor: 'rgba(3, 140, 101, 0.2)',
                         borderColor: '#038C65',
                         pointBackgroundColor: '#038C65',
                         pointBorderColor: '#fff',
@@ -521,6 +583,8 @@
                     }]
                 },
                 options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
                     scales: {
                         r: {
                             angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -532,7 +596,7 @@
                             ticks: {
                                 display: false,
                                 min: 0,
-                                max: 25 // 最大分值 5题*5分
+                                max: 25
                             }
                         }
                     },
@@ -540,7 +604,7 @@
                         legend: { display: false }
                     },
                     animation: {
-                        duration: 2000,
+                        duration: 1500,
                         easing: 'easeOutQuart'
                     }
                 }
