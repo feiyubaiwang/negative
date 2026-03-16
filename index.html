@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>你的反派人格</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
 
@@ -159,27 +158,38 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-12">
-                <!-- 雷达图 -->
-                <div class="relative bg-gray-900/50 p-6 border border-gray-800 rounded-xl min-h-[300px] flex items-center justify-center">
-                    <canvas id="radarChart"></canvas>
-                    <div id="chart-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80">
-                        <div class="w-10 h-10 border-2 border-gray-700 border-t-theme rounded-full animate-spin"></div>
-                        <p class="text-gray-400 text-xs mt-3">加载图表...</p>
-                    </div>
-                    <div id="chart-fallback" class="hidden absolute inset-0 flex flex-col items-center justify-center p-4">
-                        <div class="w-full space-y-3">
-                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>掌控</span><span id="score-control">0</span></div>
-                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-control" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
-                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>混沌</span><span id="score-chaos">0</span></div>
-                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-chaos" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
-                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>偏执</span><span id="score-paranoia">0</span></div>
-                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-paranoia" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
-                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>虚荣</span><span id="score-vanity">0</span></div>
-                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-vanity" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
-                            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>冷酷</span><span id="score-coldness">0</span></div>
-                            <div class="w-full bg-gray-800 h-2 rounded"><div id="bar-coldness" class="bg-theme h-2 rounded transition-all duration-1000" style="width: 0%"></div></div>
-                        </div>
-                    </div>
+                <!-- 雷达图 (纯SVG，无需外部库) -->
+                <div class="relative bg-gray-900/50 p-6 border border-gray-800 rounded-xl flex items-center justify-center">
+                    <svg id="radarChart" viewBox="0 0 300 300" class="w-full max-w-[280px]">
+                        <defs>
+                            <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#038C65;stop-opacity:0.4" />
+                                <stop offset="100%" style="stop-color:#038C65;stop-opacity:0.1" />
+                            </linearGradient>
+                        </defs>
+                        <!-- 背景网格 (五边形) -->
+                        <polygon points="150,30 261,94 218,226 82,226 39,94" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="150,54 239,106 204,218 96,218 61,106" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                        <polygon points="150,78 217,118 190,210 110,210 83,118" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                        <polygon points="150,102 195,130 176,194 124,194 105,130" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                        <polygon points="150,126 173,142 162,178 138,178 127,142" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+                        <!-- 轴线 -->
+                        <line x1="150" y1="150" x2="150" y2="30" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="150" y1="150" x2="261" y2="94" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="150" y1="150" x2="218" y2="226" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="150" y1="150" x2="82" y2="226" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="150" y1="150" x2="39" y2="94" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <!-- 数据区域 (动态生成) -->
+                        <polygon id="radarData" points="150,150 150,150 150,150 150,150 150,150" fill="url(#radarGradient)" stroke="#038C65" stroke-width="2" class="transition-all duration-1000"/>
+                        <!-- 数据点 -->
+                        <g id="radarPoints"></g>
+                        <!-- 标签 -->
+                        <text x="150" y="18" text-anchor="middle" fill="#e5e7eb" font-size="12" font-weight="bold">掌控</text>
+                        <text x="275" y="94" text-anchor="start" fill="#e5e7eb" font-size="12" font-weight="bold">混沌</text>
+                        <text x="228" y="248" text-anchor="start" fill="#e5e7eb" font-size="12" font-weight="bold">偏执</text>
+                        <text x="72" y="248" text-anchor="end" fill="#e5e7eb" font-size="12" font-weight="bold">虚荣</text>
+                        <text x="25" y="94" text-anchor="end" fill="#e5e7eb" font-size="12" font-weight="bold">冷酷</text>
+                    </svg>
                 </div>
 
                 <!-- 反派匹配信息 -->
@@ -374,7 +384,6 @@
             vanity: 0,
             coldness: 0
         };
-        let chartInstance = null;
 
         // ================= 核心逻辑 =================
 
@@ -444,30 +453,44 @@
             document.getElementById('view-quiz').classList.add('hidden');
             document.getElementById('view-loading').classList.remove('hidden');
 
-            // 模拟计算延迟增加氛围感
             setTimeout(() => {
                 document.getElementById('view-loading').classList.add('hidden');
                 document.getElementById('view-result').classList.remove('hidden');
                 generateResult();
-                
-                // 等待 Chart.js 加载完成后再绘制图表
-                waitForChartJs();
+                drawRadarChart();
             }, 2500);
         }
-        
-        // 等待 Chart.js 加载，最多等待 10 秒
-        function waitForChartJs(attempts = 0) {
-            if (typeof Chart !== 'undefined') {
-                drawRadarChart();
-                return;
-            }
+
+        function drawRadarChart() {
+            const maxScore = 25;
+            const centerX = 150;
+            const centerY = 150;
+            const radius = 120;
             
-            if (attempts < 50) { // 最多等待 5 秒 (50 * 100ms)
-                setTimeout(() => waitForChartJs(attempts + 1), 100);
-            } else {
-                // 超时，使用降级方案
-                drawRadarChart();
-            }
+            const dims = ['control', 'chaos', 'paranoia', 'vanity', 'coldness'];
+            const angles = [-90, -18, 54, 126, 198].map(a => a * Math.PI / 180);
+            
+            const points = dims.map((dim, i) => {
+                const value = userScores[dim];
+                const ratio = value / maxScore;
+                const r = radius * ratio;
+                const x = centerX + r * Math.cos(angles[i]);
+                const y = centerY + r * Math.sin(angles[i]);
+                return { x, y, value };
+            });
+            
+            const pointsStr = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+            
+            const radarData = document.getElementById('radarData');
+            const radarPoints = document.getElementById('radarPoints');
+            
+            setTimeout(() => {
+                radarData.setAttribute('points', pointsStr);
+                
+                radarPoints.innerHTML = points.map(p => 
+                    `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5" fill="#038C65" stroke="#fff" stroke-width="2"/>`
+                ).join('');
+            }, 100);
         }
 
         function generateResult() {
@@ -517,98 +540,6 @@
                 .map(para => `<p>${para.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white border-b-2 border-theme pb-0.5">$1</strong>')}</p>`)
                 .join('');
             document.getElementById('analysis-text').innerHTML = analysisHtml;
-            
-            // 雷达图将在 waitForChartJs 中绘制
-        }
-
-        function drawRadarChart() {
-            const loadingEl = document.getElementById('chart-loading');
-            const fallbackEl = document.getElementById('chart-fallback');
-            const canvas = document.getElementById('radarChart');
-            
-            // 如果 Chart.js 还没加载完成，显示降级方案
-            if (typeof Chart === 'undefined') {
-                loadingEl.classList.add('hidden');
-                canvas.classList.add('hidden');
-                fallbackEl.classList.remove('hidden');
-                
-                // 显示进度条
-                const maxScore = 25;
-                const dims = ['control', 'chaos', 'paranoia', 'vanity', 'coldness'];
-                dims.forEach((dim, i) => {
-                    setTimeout(() => {
-                        const score = userScores[dim];
-                        const percentage = (score / maxScore) * 100;
-                        document.getElementById(`score-${dim}`).textContent = score;
-                        document.getElementById(`bar-${dim}`).style.width = `${percentage}%`;
-                    }, i * 100);
-                });
-                return;
-            }
-            
-            // Chart.js 已加载，隐藏 loading
-            loadingEl.classList.add('hidden');
-            
-            const ctx = canvas.getContext('2d');
-            
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
-
-            Chart.defaults.color = '#9ca3af';
-            Chart.defaults.font.family = 'sans-serif';
-
-            const dataValues = [
-                userScores.control,
-                userScores.chaos,
-                userScores.paranoia,
-                userScores.vanity,
-                userScores.coldness
-            ];
-
-            chartInstance = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: ['掌控', '混沌', '偏执', '虚荣', '冷酷'],
-                    datasets: [{
-                        label: '黑暗阈值',
-                        data: dataValues,
-                        backgroundColor: 'rgba(3, 140, 101, 0.2)',
-                        borderColor: '#038C65',
-                        pointBackgroundColor: '#038C65',
-                        pointBorderColor: '#fff',
-                        pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: '#038C65',
-                        borderWidth: 2,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    scales: {
-                        r: {
-                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            pointLabels: {
-                                font: { size: 12, weight: 'bold' },
-                                color: '#e5e7eb'
-                            },
-                            ticks: {
-                                display: false,
-                                min: 0,
-                                max: 25
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    animation: {
-                        duration: 1500,
-                        easing: 'easeOutQuart'
-                    }
-                }
-            });
         }
 
         function resetTest() {
